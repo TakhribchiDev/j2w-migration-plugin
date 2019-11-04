@@ -1,0 +1,17 @@
+{
+    "name": "takhribchi/j2w-migration-plugin",
+    "description": "Joomla to wordpress migration plugin",
+    "type": "project",
+    "license": "GPLv2",
+    "authors": [
+        {
+            "name": "Takhribchi",
+            "email": "takhribchidev@gamil.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {},
+    "autoload": {
+        "psr-4": {"Includes\\": "./includes"}
+    }
+}
