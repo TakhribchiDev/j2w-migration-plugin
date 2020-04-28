@@ -1,31 +1,24 @@
-window.addEventListener("load", function() {
+window.addEventListener("load", function () {
     // Form submit
-    let form = document.getElementById("k2-migration-ajax-form");
+    let forms = document.getElementsByClassName("k2-migration-ajax-form");
 
-    if (!form) return;
+    if (!forms) return;
 
-    form.addEventListener("submit", function(event) {
+    for (let i = 0; i < forms.length; i++) {
+        forms[i].addEventListener("submit", function (event) {
+            // Prevent the form from submitting the normal way
+            event.preventDefault();
+            ajax(event.target.id);
+        });
+    }
 
-        // Prevent the form from submitting the normal way
-        event.preventDefault();
-
+    function ajax(option) {
         // Define the action that is hooked to the request send
         let data = {
             action: "k2_migrate"
         };
 
-        let checkboxes = [
-            'k2_migrate_categories',
-            'k2_migrate_posts',
-            'k2_empty_posts_categories',
-            'k2_migrate_extra_fields'
-        ];
-
-        for (let i = 0; i < checkboxes.length; i++) {
-            if (checkboxIsCheckedByName(checkboxes[i])) {
-                data[checkboxes[i]] = 1;
-            }
-        }
+        data[option] = 1;
 
         if (data['k2_migrate_categories'] ||
             data['k2_empty_posts_categories'] ||
@@ -53,7 +46,9 @@ window.addEventListener("load", function() {
             progress.removeAttribute('hidden');
 
             // XML Http Request for each post_range posts
-            let sorted_posts_ids = k2_ajax_obj.posts_ids.sort(function (a, b) { return a - b });
+            let sorted_posts_ids = k2_ajax_obj.posts_ids.sort(function (a, b) {
+                return a - b
+            });
             let cursor = 0;
             let migrated_posts = 0;
             let post_range = 100;
@@ -77,7 +72,7 @@ window.addEventListener("load", function() {
                     progressbar.innerHTML = migrated_fraction + '%';
                     progressbar.style.width = migrated_fraction + '%';
 
-                   console.log(this.responseText);
+                    console.log(this.responseText);
 
                     // Stop making requests if migration of posts completed
                     if (cursor >= sorted_posts_ids.length) return;
@@ -124,20 +119,16 @@ window.addEventListener("load", function() {
             xmlhttp.send(encoded_data);
         }
 
-        // Url encode the data to be sent with post request
-        function encodePostData(data) {
-            return Object.keys(data).map(
-                function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]); }
-            ).join('&');
-        }
+        console.log(k2_ajax_obj);
+    }
 
-        // Check if the checkbox is checked or not by using its name
-        function checkboxIsCheckedByName(checkbox_name) {
-            let checkbox = document.querySelector('input[type=checkbox][name=' + checkbox_name + ']');
-
-            return checkbox.checked;
-        }
-    });
-
-    console.log(k2_ajax_obj);
+    // Url encode the data to be sent with post request
+    function encodePostData(data) {
+        return Object.keys(data).map(
+            function (k) {
+                return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]);
+            }
+        ).join('&');
+    }
+    
 });

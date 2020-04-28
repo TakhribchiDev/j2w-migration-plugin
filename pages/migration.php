@@ -71,30 +71,52 @@
             <div id="tab-3" class="tab-pane">
                 <h3>K2 Migration Settings</h3>
 
-                <form id="k2-migration-ajax-form">
-
+                <form class="k2-migration-ajax-form" id="k2_empty_posts_categories">
                     <table class="form-table">
                         <tbody>
                         <tr>
                             <th scope="row"><label for="k2_empty_posts_categories">Empty posts and categories</label></th>
-                            <td><input type="checkbox" name="k2_empty_posts_categories" value="1"></td>
-                        </tr>
-                        <tr>
-                            <th scope="row"><label for="k2_migrate_categories">Migrate Categories</label></th>
-                            <td><input type="checkbox" name="k2_migrate_categories" value="1"></td>
-                        </tr>
-                        <tr>
-                            <th scope="row"><label for="k2_migrate_posts">Migrate Posts</label></th>
-                            <td><input type="checkbox" name="k2_migrate_posts" value="1"></td>
-                        </tr>
-                        <tr>
-                            <th scope="row"><label for="k2_migrate_extra_fields">Migrate Extra Fields</label></th>
-                            <td><input type="checkbox" name="k2_migrate_extra_fields" value="1"></td>
+                            <td><p class="submit"><input type="submit" class="button button-primary" name="k2_submit" value="Go"></p></td>
+                            <!--<td><input type="checkbox" name="k2_empty_posts_categories" value="1"></td>-->
                         </tr>
                         </tbody>
                     </table>
+                </form>
 
-                    <p class="submit"><input type="submit" name="k2_submit" id="k2-submit" class="button button-primary" value="Migrate K2"></p>
+                <form class="k2-migration-ajax-form" id="k2_migrate_categories">
+                    <table class="form-table">
+                        <tbody>
+                        <tr>
+                            <th scope="row"><label for="k2_migrate_categories">Migrate Categories</label></th>
+                            <td><p class="submit"><input type="submit" class="button button-primary" name="k2_submit" value="Go"></p></td>
+                            <!--<td><input type="checkbox" name="k2_migrate_categories" value="1"></td>-->
+                        </tr>
+                        </tbody>
+                    </table>
+                </form>
+
+                <form class="k2-migration-ajax-form" id="k2_migrate_posts">
+                    <table class="form-table">
+                        <tbody>
+                        <tr>
+                            <th scope="row"><label for="k2_migrate_posts">Migrate Posts</label></th>
+                            <td><p class="submit"><input type="submit" class="button button-primary" name="k2_submit" value="Go"></p></td>
+                            <!--<td><input type="checkbox" name="k2_migrate_posts" value="1"></td>-->
+                        </tr>
+                        </tbody>
+                    </table>
+                </form>
+
+                <form class="k2-migration-ajax-form" id="k2_migrate_extra_fields">
+                    <table class="form-table">
+                        <tbody>
+                        <tr>
+                            <th scope="row"><label for="k2_migrate_extra_fields">Migrate Extra Fields</label></th>
+                            <td><p class="submit"><input type="submit" class="button button-primary" name="k2_submit" value="Go"></p></td>
+                            <!--<td><input type="checkbox" name="k2_migrate_extra_fields" value="1"></td>-->
+                        </tr>
+                        </tbody>
+                    </table>
                 </form>
 
                 <div class="progressbar-wrap" id="k2-progress" hidden>
