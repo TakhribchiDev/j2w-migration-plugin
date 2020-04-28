@@ -145,11 +145,11 @@ class K2MigrationController extends BaseController
 		        });
 		        $old_parent = array_pop($filtered_array);
 		        // Find category term new parent from wordpress database
-		        $new_parent = get_term_by('name', $old_parent ? $old_parent->name : '', 'category');
+		        $new_parent = get_term_by('name', $old_parent ? $old_parent->name : '', 'product_cat');
 	        }
 
             // Insert new term to the database
-            wp_insert_term($category->name, 'category',
+            wp_insert_term($category->name, 'product_cat',
                 [
                     'slug' => $category->alias,
 	                'description' => strip_tags($category->description),
@@ -184,7 +184,7 @@ class K2MigrationController extends BaseController
 
         if (!isset($this->wpdb_src)) return;
 
-        // Query posts from the source database and save them in $categories_list array
+        // Query posts from the source database and save them in $k2_posts array
         $k2_posts = $this->wpdb_src->get_results("select * from  nagsh_k2_items where id >= $first_id and id <= $last_id ");
 
         foreach ( $posts_ids as $id ) {
@@ -202,10 +202,10 @@ class K2MigrationController extends BaseController
 				'post_date_gmt' => current_time('mysql', 1),
 				'post_content' => '
                         <!-- wp:heading {\"align\":\"center\"} -->
-                        <h2 style=\"text-align:center\">' . strip_tags($k2_post->description) . '</h2>
+                        <h2 style=\"text-align:center\">' . strip_tags($k2_post->fulltext) . '</h2>
                         <!-- /wp:heading -->',
 				'post_title' => $k2_post->title,
-				'post_excerpt' => '',
+				'post_excerpt' => ''/*strip_tags($k2_post->introtext)*/,
 				'post_status' => 'publish',
 				'comment_status' => 'open',
 				'ping_status' => 'open',
@@ -263,8 +263,8 @@ class K2MigrationController extends BaseController
 
 			// Set post's category
             $k2_category_alias = $this->wpdb_src->get_var('select alias from nagsh_k2_categories where id =' . strval($k2_post->catid));
-            $term = get_term_by('slug', $k2_category_alias,'category');
-            wp_set_post_terms($post_id, $term->term_id, 'category');
+            $term = get_term_by('slug', $k2_category_alias,'product_cat');
+            wp_set_post_terms($post_id, $term->term_id, 'product_cat');
 
         } // End of foreach
     } // End of function migratePosts
@@ -376,7 +376,7 @@ class K2MigrationController extends BaseController
 			$post_content = serialize( [
 				'type'              => 'checkbox',
 				'instructions'      => '',
-				'required'          => 1,
+				'required'          => 0,
 				'conditional_logic' => 0,
 				'wrapper'           =>
 					[
@@ -400,7 +400,7 @@ class K2MigrationController extends BaseController
 			$post_content = serialize( [
 					'type' => 'text',
 					'instructions' => '',
-					'required' => 1,
+					'required' => 0,
 					'conditional_logic' => 0,
 					'wrapper' =>
 						[
