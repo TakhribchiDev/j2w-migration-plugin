@@ -95,18 +95,6 @@
                     </table>
                 </form>
 
-                <form class="k2-migration-ajax-form" id="k2_migrate_posts">
-                    <table class="form-table">
-                        <tbody>
-                        <tr>
-                            <th scope="row"><label for="k2_migrate_posts">Migrate Posts</label></th>
-                            <td><p class="submit"><input type="submit" class="button button-primary" name="k2_submit" value="Go"></p></td>
-                            <!--<td><input type="checkbox" name="k2_migrate_posts" value="1"></td>-->
-                        </tr>
-                        </tbody>
-                    </table>
-                </form>
-
                 <form class="k2-migration-ajax-form" id="k2_migrate_extra_fields">
                     <table class="form-table">
                         <tbody>
@@ -114,6 +102,18 @@
                             <th scope="row"><label for="k2_migrate_extra_fields">Migrate Extra Fields</label></th>
                             <td><p class="submit"><input type="submit" class="button button-primary" name="k2_submit" value="Go"></p></td>
                             <!--<td><input type="checkbox" name="k2_migrate_extra_fields" value="1"></td>-->
+                        </tr>
+                        </tbody>
+                    </table>
+                </form>
+
+                <form class="k2-migration-ajax-form" id="k2_migrate_posts">
+                    <table class="form-table">
+                        <tbody>
+                        <tr>
+                            <th scope="row"><label for="k2_migrate_posts">Migrate Posts</label></th>
+                            <td><p class="submit"><input type="submit" class="button button-primary" name="k2_submit" value="Go"></p></td>
+                            <!--<td><input type="checkbox" name="k2_migrate_posts" value="1"></td>-->
                         </tr>
                         </tbody>
                     </table>
