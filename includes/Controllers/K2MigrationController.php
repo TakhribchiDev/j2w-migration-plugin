@@ -23,7 +23,9 @@ class K2MigrationController extends BaseController
         add_action('admin_enqueue_scripts', function() {
             wp_enqueue_script('k2-migrate-ajax-script', $this->plugin_url . '/assets/k2_migrate_ajax.js');
 
-            $k2_posts_ids = 0;
+            $category_ids = null;
+            $k2_posts_ids = null;
+
             if (isset($this->wpdb_src)) {
             	$category_ids = $this->wpdb_src->get_col('select id from nagsh_k2_categories where parent = 10');
 
@@ -190,11 +192,10 @@ class K2MigrationController extends BaseController
         foreach ( $posts_ids as $id ) {
 
         	// Find the post with the id in $posts_ids from db fetched posts
-	        $k2_post = array_pop(array_filter($k2_posts, function ($post) use ($id) {
-		        return $post->id == $id;
-	        }));
-
-	        $custom_fields_values = [];
+            $filtered_posts = array_filter( $k2_posts, function ($post) use ($id) {
+                return $post->id == $id;
+            } );
+            $k2_post = array_pop( $filtered_posts );
 
 			$post_id = wp_insert_post([
 				'post_author' => get_current_user_id(),
@@ -259,7 +260,12 @@ class K2MigrationController extends BaseController
 //		        '_price' => 0,
 //		        '_product_image_gallery' => $product_image_gallery
 //	        ];
-//			$this->insertPostMeta($post_id, $post_meta);
+
+//            $this->insertPostMeta($post_id, $post_meta);
+            // Advanced Custom Fields Values as post meta
+
+            $acf_meta = $this->getCustomFieldsValues( $k2_post->extra_fields );
+			$this->insertPostMeta($post_id, $acf_meta );
 
 			// Set post's category
             $k2_category_alias = $this->wpdb_src->get_var('select alias from nagsh_k2_categories where id =' . strval($k2_post->catid));
@@ -295,7 +301,7 @@ class K2MigrationController extends BaseController
 
 			// Insert each group's extra fields
 			foreach ( $extra_fields as $ef ) {
-				$this->insertExtraField($ef, $efg_id);
+				$this->insertExtraField($ef, $efg_id, $efg->name);
 			}
 		}
 	}
@@ -351,22 +357,53 @@ class K2MigrationController extends BaseController
 		return $acf_group_post_id;
 	}
 
-	/**
-	 * This function is used to insert a k2 extra field
-	 * as an advanced custom field
-	 *
-	 * @param $ef object -- Extra field object
-	 * @param $efg_id integer -- Extra field group id
-	 *
-	 * @return int|\WP_Error
-	 */
-	public function insertExtraField( $ef, $efg_id ) {
+    /**
+     * This function is used to insert a k2 extra field
+     * as an advanced custom field
+     *
+     * @param $ef object -- Extra field object
+     * @param $efg_id integer -- Extra field group id
+     * @param $efg_name
+     * @return int|\WP_Error
+     */
+	public function insertExtraField( $ef, $efg_id, $efg_name ) {
 
 		$ef_values = json_decode($ef->value);
 		$post_content = null;
 
 		// Determine advanced custom fields type
-		if ( $ef->type == 'multipleSelect' || $ef->type == 'select' ) {
+        if ( $ef->type == 'select' ) {
+            $choices = array();
+
+            foreach ( $ef_values as $value ) {
+                $choices[$value->value] = $value->name;
+            }
+
+            $post_content = serialize( [
+                'type'              => 'select',
+                'instructions'      => '',
+                'required'          => 0,
+                'conditional_logic' => 0,
+                'wrapper'           =>
+                    [
+                        'width' => '',
+                        'class' => '',
+                        'id'    => '',
+                    ],
+                'choices'           => $choices,
+                'default_value'     =>
+                    [
+                        0 => $ef_values[0]->name,
+                    ],
+                'allow_null' => 0,
+                'multiple' => 0,
+                'ui' => 0,
+                'return_format' => 'value',
+                'ajax' => 0,
+                'placeholder' => '',
+            ] );
+
+        } else if ( $ef->type == 'multipleSelect' ) {
 			$choices = array();
 
 			foreach ( $ef_values as $value ) {
@@ -422,7 +459,7 @@ class K2MigrationController extends BaseController
 			'post_date_gmt' => current_time('mysql', 1),
 			'post_content' => $post_content,
 			'post_title' => $ef->name,
-			'post_excerpt' => preg_replace("/[\s]/", "_", $ef->name),
+			'post_excerpt' => preg_replace("/[\s]/", "_", $efg_name . '_' . $ef->name),
 			'post_status' => 'publish',
 			'comment_status' => 'closed',
 			'ping_status' => 'closed',
@@ -442,6 +479,64 @@ class K2MigrationController extends BaseController
 
 		return $acf_field_post_id;
 	}
+
+	public function getCustomFieldsValues( $extra_fields ) {
+        $acf_map = [];
+
+        if ( empty( $extra_fields ) ) return $acf_map;
+
+        // Decode k2 item extra fields mapping
+	    $efmap = json_decode( $extra_fields );
+
+	    // Get extra fields list from source db
+	    $src_efs = $this->wpdb_src->get_results( 'select nagsh_k2_extra_fields.id as id, nagsh_k2_extra_fields.name as name, value, type, nagsh_k2_extra_fields_groups.name as \'group\' from nagsh_k2_extra_fields inner join nagsh_k2_extra_fields_groups on nagsh_k2_extra_fields.group = nagsh_k2_extra_fields_groups.id order by nagsh_k2_extra_fields.id asc' );
+
+	    foreach ( $efmap as $pair ) {
+	         $filtered_efs = array_filter( $src_efs, function ( $ef ) use ( $pair ) {
+                return $ef->id == $pair->id;
+            } );
+            $src_ef = array_pop( $filtered_efs );
+
+            // Initialize variables
+            if( $src_ef->type == 'select' or $src_ef->type == 'multipleSelect' ) {
+                $src_ef_val = [];
+                $acf_value = [];
+            }
+            else if ( $src_ef->type == 'textfield' ) {
+                $src_ef_val = '';
+                $acf_value = '';
+            }
+
+            if ( $src_ef->type == 'select' ) {
+                $src_ef_vals = json_decode( $src_ef->value );
+                $src_ef_val = $src_ef_vals[ intval( $pair->value ) - 1 ]->value;
+                $acf_value[] =  $src_ef_val;
+            }
+            else if ( $src_ef->type == 'multipleSelect' ) {
+                $src_ef_vals = json_decode( $src_ef->value );
+                foreach ( $pair->value as $val ) {
+                    $src_ef_val[] = $src_ef_vals[ intval( $val ) - 1 ]->value;
+                }
+
+                $acf_value = $src_ef_val;
+            }
+            else if ( $src_ef->type == 'textfield' ) {
+                $src_ef_val = $pair->value;
+
+                $acf_value = $src_ef_val;
+            }
+
+            global $wpdb;
+            $result = $wpdb->get_col( 'Select post_name from wp_posts where post_type = \'acf-field\' and post_excerpt = \'' . preg_replace("/[\s]/", "_", $src_ef->group . '_' . $src_ef->name) . '\'' );
+            $acf_name = $result[0];
+            $meta_key = preg_replace("/[\s]/", "_", $src_ef->group . '_' . $src_ef->name);
+
+            $acf_map[ '_' . $meta_key ] = $acf_name;
+            $acf_map[ $meta_key ] = $acf_value;
+        }
+
+	    return $acf_map;
+    }
 
 	public function insertPostImage($post_id, $k2_post) {
 
@@ -761,5 +856,4 @@ class K2MigrationController extends BaseController
             add_post_meta($post_id, $key, $value);
         }
     }
-
 }
