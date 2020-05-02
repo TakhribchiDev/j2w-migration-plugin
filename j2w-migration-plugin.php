@@ -32,8 +32,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 defined('ABSPATH') or die( 'You are not doing the right thing!');
 
 // Require once autoload file
-if (file_exists(dirname(__FILE__).'/vendor/autoload.php')) {
-    require_once dirname(__FILE__).'/vendor/autoload.php';
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
 }
 
 // Define CONSTANTS
