@@ -6,6 +6,7 @@
 namespace Includes\Controllers;
 
 use Exception;
+use MongoDB\Driver\Exception\ExecutionTimeoutException;
 
 /**
  *
@@ -187,7 +188,11 @@ class K2MigrationController extends BaseController
         if (!isset($this->wpdb_src)) return;
 
         // Query posts from the source database and save them in $k2_posts array
-        $k2_posts = $this->wpdb_src->get_results("select * from  nagsh_k2_items where id >= $first_id and id <= $last_id ");
+        $k2_posts = $this->wpdb_src->get_results("select k2_download.*,  (nagsh_k2_rating.rating_sum div nagsh_k2_rating.rating_count) as rating, item_price, special_price , count( nagsh_k2store_orderitems.order_id ) as sales
+            from ( select * from  nagsh_k2_items where id >= $first_id and id <= $last_id ) as k2_download
+            left join nagsh_k2_rating on k2_download.id = nagsh_k2_rating.itemID
+            left join nagsh_k2store_products on k2_download.id = nagsh_k2store_products.p_id
+            left join nagsh_k2store_orderitems on k2_download.id = nagsh_k2store_orderitems.product_id group by k2_download.id");
 
         foreach ( $posts_ids as $id ) {
 
@@ -201,12 +206,9 @@ class K2MigrationController extends BaseController
 				'post_author' => get_current_user_id(),
 				'post_date' => current_time('mysql'),
 				'post_date_gmt' => current_time('mysql', 1),
-				'post_content' => '
-                        <!-- wp:heading {\"align\":\"center\"} -->
-                        <h2 style=\"text-align:center\">' . strip_tags($k2_post->fulltext) . '</h2>
-                        <!-- /wp:heading -->',
+				'post_content' => '<p style=\"text-align:right\">' . preg_replace('/{k2storecart\s+\d+}/i', '', strip_tags($k2_post->fulltext) ) . '</p>',
 				'post_title' => $k2_post->title,
-				'post_excerpt' => ''/*strip_tags($k2_post->introtext)*/,
+				'post_excerpt' => preg_replace('/{k2storecart\s+\d+}/i', '', strip_tags($k2_post->introtext) ),
 				'post_status' => 'publish',
 				'comment_status' => 'open',
 				'ping_status' => 'open',
@@ -224,46 +226,38 @@ class K2MigrationController extends BaseController
 				'post_mime_type' => '',
 			]);
 
-//	        // Generate post meta for this post
-//	        $download_id = $this->generate_woocommerce_download_id();
-//			$thumbnail_id = $this->insertPostImage($post_id, $k2_post);
-//			$product_image_gallery = $this->allocateImageGallery($post_id, $k2_post);
-//
-//	        $post_meta = [
-//		        '_edit_last' => get_current_user_id(),
-//		        'slide_template' => 'default',
-//		        '_thumbnail_id' => $thumbnail_id,
-//		        '_regular_price' => 0,
-//		        'total_sales' => 1,
-//		        '_tax_status' => 'taxable',
-//		        '_tax_class' => '',
-//		        '_manage_stock' => 'no',
-//		        '_backorders' => 'no',
-//		        '_sold_individually' => 'no',
-//		        '_virtual' => 'yes',
-//		        '_downloadable' => 'yes',
-//		        '_download_limit' => -1,
-//		        '_download_expiry' => -1,
-//		        '_stock' => '',
-//		        '_stock_status' => 'instock',
-//		        '_wc_average_rating' => 0,
-//		        '_wc_review_count' => 0,
-//		        '_downloadable_files' => maybe_serialize([
-//			        $download_id =>
-//				        [
-//					        'id' => $download_id,
-//					        'name' => 'دانلود',
-//					        'file' => '',
-//				        ],
-//		        ]),
-//		        '_product_version' => '1.0',
-//		        '_price' => 0,
-//		        '_product_image_gallery' => $product_image_gallery
-//	        ];
+	        // Generate post meta for this post
+	        $download_links = $this->getDownloadLinks( $k2_post );
+			$thumbnail_id = $this->insertPostImage($post_id, $k2_post);
+			$product_image_gallery = $this->allocateImageGallery($post_id, $k2_post);
 
-//            $this->insertPostMeta($post_id, $post_meta);
+	        $post_meta = [
+		        '_edit_last' => get_current_user_id(),
+		        'slide_template' => 'default',
+		        '_thumbnail_id' => $thumbnail_id,
+		        '_regular_price' => ( is_null( $k2_post->item_price) ? '0' : $k2_post->item_price ),
+		        'total_sales' => $k2_post->sales,
+		        '_tax_status' => 'taxable',
+		        '_tax_class' => '',
+		        '_manage_stock' => 'no',
+		        '_backorders' => 'no',
+		        '_sold_individually' => 'no',
+		        '_virtual' => 'yes',
+		        '_downloadable' => 'yes',
+		        '_download_limit' => -1,
+		        '_download_expiry' => -1,
+		        '_stock' => '',
+		        '_stock_status' => 'instock',
+		        '_wc_average_rating' => $k2_post->rating,
+		        '_wc_review_count' => 0,
+		        '_downloadable_files' => $download_links,
+		        '_product_version' => '1.0',
+		        '_price' => ( is_null( $k2_post->special_price) ? '0' : $k2_post->special_price ),
+		        '_product_image_gallery' => $product_image_gallery
+	        ];
+	        $this->insertPostMeta($post_id, $post_meta);
+
             // Advanced Custom Fields Values as post meta
-
             $acf_meta = $this->getCustomFieldsValues( $k2_post->extra_fields );
 			$this->insertPostMeta($post_id, $acf_meta );
 
@@ -540,7 +534,17 @@ class K2MigrationController extends BaseController
 
 	public function insertPostImage($post_id, $k2_post) {
 
-		$image_info = $this->getImageInfo('https://nagsh.ir/media/k2/items/cache/' ,  md5('Image' . $k2_post->id));
+        $image_info = array();
+
+        try {
+            $image_info = $this->getImageInfo( dirname( ABSPATH )  . '/media/k2/items/cache/' ,  md5('Image' . $k2_post->id) . '_XL');
+        }
+        catch ( Exception $e ) {
+            print_r ( 'Error: ' . $e->getMessage() );
+        }
+        finally {
+            if ( ! $image_info ) return '';
+        }
 
 		$image_sizes = $this->generateImageSizes( $image_info['dirname'] . '/' . $image_info['basename']);
 
@@ -562,17 +566,17 @@ class K2MigrationController extends BaseController
 			'post_modified_gmt' => current_time('mysql', 1),
 			'post_content_filtered' => '',
 			'post_parent' => $post_id,
-			'guid' => wp_get_upload_dir()['path'] . $image_sizes['original']['file'],
+			'guid' => wp_get_upload_dir()['url'] . $image_sizes['original']['file'],
 			'menu_order' => 0,
 			'post_type' => 'attachment',
 			'post_mime_type' => $image_sizes['original']['mime-type'],
 			'comment_count' => 0,
 			'meta_input' => [
-				'_wp_attached_file' => $image_sizes['original']['path'],
+				'_wp_attached_file' => ltrim( wp_get_upload_dir()['subdir'] , '/' ) . '/' . $image_sizes['original']['file'],
 				'_wp_attachment_metadata' => [
 					'width' => $image_sizes['original']['width'],
 					'height' => $image_sizes['original']['height'],
-					'file' => $image_sizes['original']['file'],
+					'file' => ltrim( wp_get_upload_dir()['subdir'] , '/' ) . '/' . $image_sizes['original']['file'],
 					'sizes' => [
 						'thumbnail' => [
 							'file' => $image_sizes['150x150']['file'],
@@ -629,9 +633,12 @@ class K2MigrationController extends BaseController
 	}
 
 	public function generateImageSizes($image_path) {
+	    $resizes = array();
 
 		// Save Image related filesystem information
 		$image_info = pathinfo($image_path);
+
+		if ( ! $image_info ) return $resizes;
 
 		// Copy image to its new location
 		if (getimagesize($image_path)) {
@@ -688,6 +695,7 @@ class K2MigrationController extends BaseController
 
 	public function getImageInfo($dirname, $filename) {
 		$file_path = $dirname . $filename;
+
 		$extensions = array('jpg', 'png', 'jpeg');
 
 		foreach ($extensions as $ext) {
@@ -702,8 +710,17 @@ class K2MigrationController extends BaseController
 	}
 
 	public function insertPostImageGallery($post_id, $k2_post, $image_path) {
+	    $image_info = array();
 
-		$image_info = pathinfo('https://nagsh.ir/' .  $image_path);
+	    try {
+            $image_info = pathinfo(dirname( ABSPATH )  . '/' .  $image_path);
+        }
+        catch ( Exception $e ) {
+	        print_r ( 'Error: ' . $e->getMessage() );
+        }
+        finally {
+            if ( ! $image_info ) return '';
+        }
 
 		$image_sizes = $this->generateImageSizes( $image_info['dirname'] . '/' . $image_info['basename']);
 
@@ -725,17 +742,17 @@ class K2MigrationController extends BaseController
 			'post_modified_gmt' => current_time('mysql', 1),
 			'post_content_filtered' => '',
 			'post_parent' => $post_id,
-			'guid' => wp_get_upload_dir()['path'] . $image_sizes['original']['file'],
+			'guid' => wp_get_upload_dir()['url'] . $image_sizes['original']['file'],
 			'menu_order' => 0,
 			'post_type' => 'attachment',
 			'post_mime_type' => $image_sizes['original']['mime-type'],
 			'comment_count' => 0,
 			'meta_input' => [
-				'_wp_attached_file' => $image_sizes['original']['path'],
+				'_wp_attached_file' => ltrim( wp_get_upload_dir()['subdir'] , '/' ) . '/' . $image_sizes['original']['file'],
 				'_wp_attachment_metadata' => [
 					'width' => $image_sizes['original']['width'],
 					'height' => $image_sizes['original']['height'],
-					'file' => $image_sizes['original']['file'],
+					'file' => ltrim( wp_get_upload_dir()['subdir'] , '/' ) . '/' . $image_sizes['original']['file'],
 					'sizes' => [
 						'thumbnail' => [
 							'file' => $image_sizes['150x150']['file'],
@@ -802,7 +819,7 @@ class K2MigrationController extends BaseController
 		for ( $i = 0; $i < $imgs->length; $i++ ) {
 			$img = $imgs->item($i);
 			$img_src = $img->getAttribute('src');
-			$img_srcs[$i] = $img_src;
+			$img_srcs[$i] = preg_replace( '/%20/', ' ', $img_src );
 		}
 
 		$attachments_ids = array();
@@ -812,7 +829,10 @@ class K2MigrationController extends BaseController
 			$attachments_ids[] = $attachment_id;
 		}
 
+		if ( ! $attachments_ids ) return '';
+
 		$image_gallery_string = implode( ',', $attachments_ids );
+
 
 		return $image_gallery_string;
 	}
@@ -843,6 +863,28 @@ class K2MigrationController extends BaseController
 
 		return $download_id;
 	}
+
+    /**
+     * This function is used to generate Download Links
+     * from src DB
+     *
+     * @return array
+     */
+    public function getDownloadLinks( $k2_post ) {
+        $results = $this->wpdb_src->get_results( "select filename, titleAttribute from nagsh_k2_attachments where itemID = $k2_post->id" );
+
+        $download_links = array();
+        foreach( $results as $result ) {
+            $download_id = $this->generate_woocommerce_download_id();
+            $download_links[ $download_id ] = [
+                'id' => $download_id,
+                'name' => $result->titleAttribute,
+                'file' => 'https://nagsh.ir/nagsh-dl/' . $result->filename
+            ];
+        }
+
+        return $download_links;
+    }
 
 	/**
 	 * This function gets an array as post metadata
