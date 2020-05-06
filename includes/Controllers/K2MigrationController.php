@@ -206,7 +206,7 @@ class K2MigrationController extends BaseController
 				'post_author' => get_current_user_id(),
 				'post_date' => current_time('mysql'),
 				'post_date_gmt' => current_time('mysql', 1),
-				'post_content' => '<p style=\"text-align:right\">' . preg_replace('/{k2storecart\s+\d+}/i', '', strip_tags($k2_post->fulltext) ) . '</p>',
+				'post_content' => '<p style=\"text-align:right\">' . preg_replace('/{k2storecart\s+\d+}/i', '', strip_tags($k2_post->fulltext) ) . '</p>' . '[nagshdl-show-acf-fields]',
 				'post_title' => $k2_post->title,
 				'post_excerpt' => preg_replace('/{k2storecart\s+\d+}/i', '', strip_tags($k2_post->introtext) ),
 				'post_status' => 'publish',
