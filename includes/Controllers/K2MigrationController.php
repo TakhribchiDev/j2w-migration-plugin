@@ -502,7 +502,7 @@ class K2MigrationController extends BaseController
                 $src_ef_val = 0;
                 $acf_value = 0;
             }
-            if( $src_ef->type == 'multipleSelect' ) {
+            else if( $src_ef->type == 'multipleSelect' ) {
                 $src_ef_val = [];
                 $acf_value = [];
             }
