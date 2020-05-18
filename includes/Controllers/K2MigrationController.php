@@ -191,7 +191,7 @@ class K2MigrationController extends BaseController
         $k2_posts = $this->wpdb_src->get_results("select k2_download.*,  (nagsh_k2_rating.rating_sum div nagsh_k2_rating.rating_count) as rating, item_price, special_price , count( nagsh_k2store_orderitems.order_id ) as sales
             from ( select * from  nagsh_k2_items where id >= $first_id and id <= $last_id ) as k2_download
             left join nagsh_k2_rating on k2_download.id = nagsh_k2_rating.itemID
-            left join nagsh_k2store_products on k2_download.id = nagsh_k2store_products.p_id
+            left join nagsh_k2store_products on k2_download.id = nagsh_k2store_products.product_id
             left join nagsh_k2store_orderitems on k2_download.id = nagsh_k2store_orderitems.product_id group by k2_download.id");
 
         foreach ( $posts_ids as $id ) {
@@ -235,7 +235,7 @@ class K2MigrationController extends BaseController
 		        '_edit_last' => get_current_user_id(),
 		        'slide_template' => 'default',
 		        '_thumbnail_id' => $thumbnail_id,
-		        '_regular_price' => ( is_null( $k2_post->item_price) ? '0' : $k2_post->item_price ),
+		        '_regular_price' => ( is_null( $k2_post->item_price) ? '0' : intval( $k2_post->item_price ) ),
 		        'total_sales' => $k2_post->sales,
 		        '_tax_status' => 'taxable',
 		        '_tax_class' => '',
@@ -252,7 +252,7 @@ class K2MigrationController extends BaseController
 		        '_wc_review_count' => 0,
 		        '_downloadable_files' => $download_links,
 		        '_product_version' => '1.0',
-		        '_price' => ( is_null( $k2_post->special_price) ? '0' : $k2_post->special_price ),
+		        '_price' => ( is_null( $k2_post->special_price) ? '0' : intval( $k2_post->special_price ) ),
 		        '_product_image_gallery' => $product_image_gallery
 	        ];
 	        $this->insertPostMeta($post_id, $post_meta);
@@ -265,6 +265,12 @@ class K2MigrationController extends BaseController
             $k2_category_alias = $this->wpdb_src->get_var('select alias from nagsh_k2_categories where id =' . strval($k2_post->catid));
             $term = get_term_by('slug', $k2_category_alias,'product_cat');
             wp_set_post_terms($post_id, $term->term_id, 'product_cat');
+
+            // Set post tags
+            $post_tags = $this->wpdb_src->get_col( "select name
+                                                    from  nagsh_k2_tags_xref inner join nagsh_k2_tags on nagsh_k2_tags_xref.tagID = nagsh_k2_tags.id
+                                                    where itemID = $k2_post->id" );
+            wp_set_post_terms($post_id, $post_tags, 'product_tag');
 
         } // End of foreach
     } // End of function migratePosts
