@@ -498,7 +498,11 @@ class K2MigrationController extends BaseController
             $src_ef = array_pop( $filtered_efs );
 
             // Initialize variables
-            if( $src_ef->type == 'select' or $src_ef->type == 'multipleSelect' ) {
+            if ( $src_ef->type == 'select' ) {
+                $src_ef_val = 0;
+                $acf_value = 0;
+            }
+            if( $src_ef->type == 'multipleSelect' ) {
                 $src_ef_val = [];
                 $acf_value = [];
             }
@@ -510,7 +514,7 @@ class K2MigrationController extends BaseController
             if ( $src_ef->type == 'select' ) {
                 $src_ef_vals = json_decode( $src_ef->value );
                 $src_ef_val = $src_ef_vals[ intval( $pair->value ) - 1 ]->value;
-                $acf_value[] =  $src_ef_val;
+                $acf_value =  $src_ef_val;
             }
             else if ( $src_ef->type == 'multipleSelect' ) {
                 $src_ef_vals = json_decode( $src_ef->value );
